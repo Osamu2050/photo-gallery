@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>私のフォトギャラリー</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:      #faf7f2;
+      --sand:       #e8e0d0;
+      --warm-brown: #8b6f4e;
+      --dark-brown: #4a3728;
+      --accent:     #c9956a;
+      --text:       #3d2e22;
+      --text-light: #7a6252;
+      --white:      #ffffff;
+      --shadow:     rgba(74,55,40,0.12);
+      --edit-color: #e07b4a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Georgia','Hiragino Mincho ProN','Yu Mincho',serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--sand);
+      padding: 0 2rem;
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 2px 12px var(--shadow);
+    }
+    .header-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .site-title { font-size:1.3rem; font-weight:normal; color:var(--dark-brown); letter-spacing:.06em; }
+    .site-title span { color:var(--accent); font-style:italic; }
+
+    .edit-toggle-btn {
+      background: none; border: 1.5px solid var(--sand); border-radius: 20px;
+      padding: .35rem .9rem; font-family: inherit; font-size: .8rem;
+      color: var(--text-light); cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .edit-toggle-btn:hover { border-color: var(--edit-color); color: var(--edit-color); }
+    .edit-toggle-btn.active { background: var(--edit-color); border-color: var(--edit-color); color: #fff; }
+
+    /* ===== EDIT MODE BANNER ===== */
+    .edit-banner {
+      display: none; background: #fff4ed; border-bottom: 2px solid var(--edit-color);
+      padding: .6rem 2rem; text-align: center;
+    }
+    .edit-banner.visible { display: block; }
+    .edit-banner p { font-size: .85rem; color: var(--edit-color); }
+
+    /* ===== HERO ===== */
+    .hero { text-align:center; padding:4rem 2rem 3rem; background:linear-gradient(180deg,var(--white) 0%,var(--cream) 100%); }
+    .hero-subtitle { font-size:.85rem; letter-spacing:.2em; color:var(--accent); text-transform:uppercase; margin-bottom:.8rem; }
+    .hero h1 { font-size:clamp(1.8rem,4vw,2.8rem); font-weight:normal; color:var(--dark-brown); line-height:1.4; margin-bottom:1rem; }
+    .hero p { color:var(--text-light); font-size:1rem; max-width:480px; margin:0 auto; line-height:1.8; }
+    .divider { width:48px; height:2px; background:var(--accent); margin:1.5rem auto 0; border-radius:2px; }
+
+    /* ===== ALBUM TABS ===== */
+    .album-nav { max-width:1100px; margin:2.5rem auto 0; padding:0 2rem; }
+    .album-tabs { display:flex; gap:.5rem; flex-wrap:wrap; border-bottom:2px solid var(--sand); padding-bottom:0; }
+    .tab-btn {
+      background:none; border:none; cursor:pointer; font-family:inherit; font-size:.95rem;
+      color:var(--text-light); padding:.6rem 1.2rem; border-bottom:2px solid transparent;
+      margin-bottom:-2px; transition:color .2s,border-color .2s; letter-spacing:.04em;
+    }
+    .tab-btn:hover { color:var(--warm-brown); }
+    .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:bold; }
+
+    /* ===== GALLERY ===== */
+    .gallery-section { max-width:1100px; margin:0 auto; padding:2rem 2rem 5rem; }
+    .album-panel { display:none; }
+    .album-panel.active { display:block; }
+    .album-description { color:var(--text-light); font-size:.9rem; margin-bottom:1.5rem; font-style:italic; }
+
+    .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1.2rem; }
+
+    /* Add Photo Card */
+    .add-photo-card {
+      border: 2px dashed var(--sand); border-radius: 6px; aspect-ratio: 4/3;
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: .6rem; cursor: pointer;
+      color: var(--text-light); font-size: .9rem; transition: all .2s;
+      background: var(--white);
+    }
+    .add-photo-card:hover { border-color: var(--edit-color); color: var(--edit-color); background: #fff4ed; }
+    .add-photo-card .plus { font-size: 2rem; line-height: 1; }
+    body.edit-mode .add-photo-card { display: flex; }
+
+    /* Photo Card */
+    .photo-card {
+      position:relative; border-radius:6px; overflow:hidden; background:var(--sand);
+      cursor:pointer; box-shadow:0 2px 10px var(--shadow);
+      transition:transform .25s,box-shadow .25s; aspect-ratio:4/3;
+    }
+    .photo-card:hover { transform:translateY(-4px); box-shadow:0 8px 24px var(--shadow); }
+    .photo-card img { width:100%; height:100%; object-fit:cover; display:block; }
+    .photo-card .overlay {
+      position:absolute; inset:0; background:linear-gradient(0deg,rgba(74,55,40,.6) 0%,transparent 50%);
+      opacity:0; transition:opacity .25s; display:flex; align-items:flex-end; padding:1rem;
+    }
+    .photo-card:hover .overlay { opacity:1; }
+    .photo-caption { color:var(--white); font-size:.85rem; letter-spacing:.04em; line-height:1.4; }
+
+    /* Edit overlays on cards */
+    .card-edit-bar {
+      display: none; position: absolute; top: .5rem; right: .5rem;
+      flex-direction: column; gap: .35rem; z-index: 10;
+    }
+    body.edit-mode .card-edit-bar { display: flex; }
+    .card-btn {
+      width: 30px; height: 30px; border: none; border-radius: 50%;
+      cursor: pointer; font-size: .85rem; display: flex; align-items: center;
+      justify-content: center; transition: all .15s; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    .card-btn-delete { background: #e74c3c; color: #fff; }
+    .card-btn-delete:hover { background: #c0392b; transform: scale(1.1); }
+    .card-btn-edit { background: var(--white); color: var(--dark-brown); }
+    .card-btn-edit:hover { background: var(--accent); color: #fff; transform: scale(1.1); }
+
+    /* ===== FLOATING SAVE BAR ===== */
+    .save-bar {
+      display: none; position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: var(--dark-brown); color: var(--white); border-radius: 30px;
+      padding: .7rem 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+      align-items: center; gap: 1rem; z-index: 300; white-space: nowrap;
+    }
+    body.edit-mode .save-bar { display: flex; }
+    .save-bar span { font-size: .85rem; opacity: .8; }
+    .save-btn {
+      background: var(--accent); border: none; color: #fff; font-family: inherit;
+      font-size: .85rem; padding: .45rem 1.1rem; border-radius: 20px;
+      cursor: pointer; transition: background .2s;
+    }
+    .save-btn:hover { background: #b8804f; }
+
+    /* ===== LIGHTBOX ===== */
+    .lightbox {
+      display:none; position:fixed; inset:0; background:rgba(30,20,14,.92);
+      z-index:1000; align-items:center; justify-content:center; padding:1.5rem;
+    }
+    .lightbox.open { display:flex; }
+    .lightbox-inner {
+      position:relative; max-width:900px; width:100%;
+      animation: lbIn .25s ease;
+    }
+    @keyframes lbIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+    .lightbox-inner img { width:100%; max-height:80vh; object-fit:contain; border-radius:4px; display:block; }
+    .lightbox-caption { text-align:center; color:rgba(255,255,255,.75); font-size:.9rem; margin-top:.8rem; font-style:italic; }
+    .lb-close {
+      position:absolute; top:-2.5rem; right:0; background:none; border:none;
+      color:var(--white); font-size:1.8rem; cursor:pointer; line-height:1; opacity:.7; transition:opacity .2s;
+    }
+    .lb-close:hover { opacity:1; }
+    .lb-nav {
+      position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.15);
+      border:none; color:var(--white); font-size:1.6rem; width:44px; height:44px;
+      border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:background .2s;
+    }
+    .lb-nav:hover { background:rgba(255,255,255,.3); }
+    .lb-prev { left:-3.5rem; } .lb-next { right:-3.5rem; }
+
+    /* ===== MODALS ===== */
+    .modal-overlay {
+      display:none; position:fixed; inset:0; background:rgba(30,20,14,.55);
+      z-index:500; align-items:center; justify-content:center; padding:1rem;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:var(--white); border-radius:12px; padding:2rem;
+      max-width:480px; width:100%; box-shadow:0 8px 40px rgba(0,0,0,.25);
+      animation: lbIn .2s ease;
+    }
+    .modal h3 { font-size:1.15rem; font-weight:normal; color:var(--dark-brown); margin-bottom:1.2rem; }
+    .modal label { display:block; font-size:.85rem; color:var(--text-light); margin-bottom:.3rem; margin-top:.9rem; }
+    .modal label:first-of-type { margin-top:0; }
+    .modal input, .modal select, .modal textarea {
+      width:100%; padding:.55rem .8rem; border:1.5px solid var(--sand); border-radius:6px;
+      font-family:inherit; font-size:.95rem; color:var(--text);
+      background:var(--cream); transition:border-color .2s;
+    }
+    .modal input:focus, .modal select:focus, .modal textarea:focus {
+      outline:none; border-color:var(--accent);
+    }
+    .modal textarea { resize:vertical; min-height:60px; }
+    .modal-footer { display:flex; gap:.7rem; justify-content:flex-end; margin-top:1.5rem; }
+    .btn-cancel {
+      background:none; border:1.5px solid var(--sand); border-radius:6px;
+      padding:.5rem 1.1rem; font-family:inherit; font-size:.9rem;
+      color:var(--text-light); cursor:pointer; transition:all .2s;
+    }
+    .btn-cancel:hover { border-color:var(--warm-brown); color:var(--warm-brown); }
+    .btn-primary {
+      background:var(--accent); border:none; border-radius:6px;
+      padding:.5rem 1.2rem; font-family:inherit; font-size:.9rem;
+      color:#fff; cursor:pointer; transition:background .2s;
+    }
+    .btn-primary:hover { background:#b8804f; }
+    .btn-danger {
+      background:#e74c3c; border:none; border-radius:6px;
+      padding:.5rem 1.2rem; font-family:inherit; font-size:.9rem;
+      color:#fff; cursor:pointer; transition:background .2s;
+    }
+    .btn-danger:hover { background:#c0392b; }
+
+    /* Drop zone */
+    .drop-zone {
+      border:2px dashed var(--sand); border-radius:8px; padding:2rem;
+      text-align:center; color:var(--text-light); font-size:.9rem;
+      cursor:pointer; transition:all .2s; margin-bottom:.5rem;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color:var(--accent); background:#fff8f4; color:var(--accent); }
+    .drop-zone .drop-icon { font-size:2rem; display:block; margin-bottom:.5rem; }
+    .drop-zone-preview { max-width:100%; max-height:160px; object-fit:contain; margin-top:.8rem; border-radius:6px; display:none; }
+
+    /* Error text */
+    .modal-error { color:#e74c3c; font-size:.8rem; margin-top:.4rem; display:none; }
+    .modal-error.visible { display:block; }
+
+    /* ===== FOOTER ===== */
+    footer { text-align:center; padding:2rem; color:var(--text-light); font-size:.8rem; border-top:1px solid var(--sand); letter-spacing:.04em; }
+
+    @media(max-width:640px) {
+      .lb-prev{left:.2rem} .lb-next{right:.2rem}
+      .photo-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+    }
+  </style>
+</head>
+<body>
+
+<!-- EDIT MODE BANNER -->
+<div class="edit-banner" id="editBanner">
+  <p>✏️ 編集モード中 — 写真の追加・削除・編集ができます。変更後は「更新版をダウンロード」で保存してください。</p>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <h2 class="site-title">📷 <span>My Gallery</span></h2>
+    <button class="edit-toggle-btn" id="editToggleBtn" title="編集モード">✏️ 編集</button>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <p class="hero-subtitle">Photography</p>
+  <h1>私のお気に入り写真</h1>
+  <p>カメラ片手に出会った、日常の中の美しい瞬間たち。</p>
+  <div class="divider"></div>
+</section>
+
+<!-- ALBUM TABS -->
+<nav class="album-nav">
+  <div class="album-tabs" id="albumTabs">
+    <button class="tab-btn active" data-album="all">すべて</button>
+    <button class="tab-btn" data-album="landscape">風景</button>
+    <button class="tab-btn" data-album="portrait">ポートレート</button>
+    <button class="tab-btn" data-album="daily">日常・スナップ</button>
+    <button class="tab-btn" data-album="nature">自然・花</button>
+  </div>
+</nav>
+
+<!-- GALLERY -->
+<main class="gallery-section">
+  <div class="album-panel active" id="all">
+    <div class="photo-grid" id="gridAll"></div>
+  </div>
+  <div class="album-panel" id="landscape">
+    <p class="album-description">旅先や近所で出会った、心に残る景色</p>
+    <div class="photo-grid" id="gridLandscape"></div>
+  </div>
+  <div class="album-panel" id="portrait">
+    <p class="album-description">大切な人たちの、ふとした表情</p>
+    <div class="photo-grid" id="gridPortrait"></div>
+  </div>
+  <div class="album-panel" id="daily">
+    <p class="album-description">何気ない毎日の中に見つけた、小さな物語</p>
+    <div class="photo-grid" id="gridDaily"></div>
+  </div>
+  <div class="album-panel" id="nature">
+    <p class="album-description">季節が運んでくる色と形</p>
+    <div class="photo-grid" id="gridNature"></div>
+  </div>
+</main>
+
+<!-- FLOATING SAVE BAR -->
+<div class="save-bar">
+  <span>変更は保存されていません</span>
+  <button class="save-btn" id="downloadBtn">💾 更新版をダウンロード</button>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="lb-close" id="lbClose">✕</button>
+    <button class="lb-nav lb-prev" id="lbPrev">‹</button>
+    <img id="lbImg" src="" alt="" />
+    <button class="lb-nav lb-next" id="lbNext">›</button>
+    <p class="lightbox-caption" id="lbCaption"></p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 いけじじのフォトギャラリー &nbsp;|&nbsp; すべての写真の著作権は撮影者に帰属します</p>
+</footer>
+
+<!-- ===== PASSWORD MODAL ===== -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal">
+    <h3>🔐 編集モードに入る</h3>
+    <label>パスワード</label>
+    <input type="password" id="passwordInput" placeholder="パスワードを入力" autocomplete="off" />
+    <p class="modal-error" id="passwordError">パスワードが違います</p>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="passwordCancel">キャンセル</button>
+      <button class="btn-primary" id="passwordOk">入る</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADD PHOTO MODAL ===== -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3>📸 写真を追加</h3>
+    <div class="drop-zone" id="dropZone">
+      <span class="drop-icon">🖼️</span>
+      クリックまたはドラッグ&ドロップで写真を選択
+      <img class="drop-zone-preview" id="dzPreview" src="" alt="" />
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+    <label>説明文（キャプション）</label>
+    <input type="text" id="addCaption" placeholder="例：夕暮れの山並み" />
+
+    <label>アルバム</label>
+    <select id="addAlbum">
+      <option value="landscape">風景</option>
+      <option value="portrait">ポートレート</option>
+      <option value="daily">日常・スナップ</option>
+      <option value="nature">自然・花</option>
+    </select>
+
+    <p class="modal-error" id="addError">写真を選択してください</p>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="addCancel">キャンセル</button>
+      <button class="btn-primary" id="addOk">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EDIT CAPTION MODAL ===== -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ 写真を編集</h3>
+    <label>説明文（キャプション）</label>
+    <input type="text" id="editCaption" />
+    <label>アルバム</label>
+    <select id="editAlbum">
+      <option value="landscape">風景</option>
+      <option value="portrait">ポートレート</option>
+      <option value="daily">日常・スナップ</option>
+      <option value="nature">自然・花</option>
+    </select>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="editCancel">キャンセル</button>
+      <button class="btn-primary" id="editOk">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DELETE CONFIRM MODAL ===== -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>🗑️ この写真を削除しますか？</h3>
+    <p style="color:var(--text-light);font-size:.9rem;margin-top:.5rem;line-height:1.7">
+      削除した写真は元に戻せません。「更新版をダウンロード」するまでは変更は反映されません。
+    </p>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="deleteCancel">キャンセル</button>
+      <button class="btn-danger" id="deleteOk">削除する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+// 📸 写真データ
+//
+// 写真を差し替えるには:
+//   src: "photos/ファイル名.jpg"  または  base64データURL
+//   caption: "説明文"
+//   album: "landscape" | "portrait" | "daily" | "nature"
+// =============================================
+let photos = [
+  { src:"https://picsum.photos/seed/lscp1/800/600", caption:"夕暮れの山並み",   album:"landscape" },
+  { src:"https://picsum.photos/seed/lscp2/800/600", caption:"朝霧の湖畔",       album:"landscape" },
+  { src:"https://picsum.photos/seed/lscp3/800/600", caption:"古い街並み",       album:"landscape" },
+  { src:"https://picsum.photos/seed/lscp4/800/600", caption:"海岸線の夕日",     album:"landscape" },
+  { src:"https://picsum.photos/seed/port1/800/600", caption:"笑顔の一瞬",       album:"portrait"  },
+  { src:"https://picsum.photos/seed/port2/800/600", caption:"穏やかな午後",     album:"portrait"  },
+  { src:"https://picsum.photos/seed/port3/800/600", caption:"真剣な眼差し",     album:"portrait"  },
+  { src:"https://picsum.photos/seed/snap1/800/600", caption:"駅のホームで",     album:"daily"     },
+  { src:"https://picsum.photos/seed/snap2/800/600", caption:"朝のコーヒー",     album:"daily"     },
+  { src:"https://picsum.photos/seed/snap3/800/600", caption:"路地裏の光",       album:"daily"     },
+  { src:"https://picsum.photos/seed/nat1/800/600",  caption:"春の桜",           album:"nature"    },
+  { src:"https://picsum.photos/seed/nat2/800/600",  caption:"雨上がりの紫陽花", album:"nature"    },
+  { src:"https://picsum.photos/seed/nat3/800/600",  caption:"秋の紅葉",         album:"nature"    },
+  { src:"https://picsum.photos/seed/nat4/800/600",  caption:"森の木漏れ日",     album:"nature"    },
+];
+
+// =============================================
+// ⚙️ 設定 — パスワードはここで変更してください
+// =============================================
+const EDIT_PASSWORD = "1234";
+
+// =============================================
+// 状態
+// =============================================
+let editMode = false;
+let currentAlbum = "all";
+let lbItems = [], lbIndex = 0;
+let pendingDeleteIndex = -1;
+let pendingEditIndex = -1;
+let pendingAddSrc = null;
+
+// =============================================
+// グリッド描画
+// =============================================
+const albumIds = { landscape:"gridLandscape", portrait:"gridPortrait", daily:"gridDaily", nature:"gridNature" };
+const albumLabels = { landscape:"風景", portrait:"ポートレート", daily:"日常・スナップ", nature:"自然・花" };
+
+function buildAllGrids() {
+  buildGrid("gridAll", photos.map((_,i)=>i));
+  Object.keys(albumIds).forEach(album => {
+    const indices = photos.map((_,i)=>i).filter(i => photos[i].album === album);
+    buildGrid(albumIds[album], indices);
+  });
+}
+
+function buildGrid(containerId, indices) {
+  const grid = document.getElementById(containerId);
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  // 追加ボタン
+  const addCard = document.createElement("div");
+  addCard.className = "add-photo-card";
+  addCard.innerHTML = `<span class="plus">＋</span><span>写真を追加</span>`;
+  addCard.addEventListener("click", () => openAddModal());
+  grid.appendChild(addCard);
+
+  indices.forEach(idx => {
+    const photo = photos[idx];
+    const card = document.createElement("div");
+    card.className = "photo-card";
+    card.dataset.idx = idx;
+    card.innerHTML = `
+      <img src="${photo.src}" alt="${photo.caption}" loading="lazy" />
+      <div class="overlay"><span class="photo-caption">${photo.caption}</span></div>
+      <div class="card-edit-bar">
+        <button class="card-btn card-btn-edit" title="編集">✏️</button>
+        <button class="card-btn card-btn-delete" title="削除">🗑️</button>
+      </div>
+    `;
+    card.querySelector(".card-btn-edit").addEventListener("click", e => {
+      e.stopPropagation(); openEditModal(idx);
+    });
+    card.querySelector(".card-btn-delete").addEventListener("click", e => {
+      e.stopPropagation(); openDeleteModal(idx);
+    });
+    card.addEventListener("click", e => {
+      if (editMode) return;
+      const currentPhotos = indices.map(i => photos[i]);
+      const posInCurrent = indices.indexOf(idx);
+      openLightbox(currentPhotos, posInCurrent);
+    });
+    grid.appendChild(card);
+  });
+}
+
+// =============================================
+// タブ切り替え
+// =============================================
+document.getElementById("albumTabs").addEventListener("click", e => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".album-panel").forEach(p => p.classList.remove("active"));
+  btn.classList.add("active");
+  currentAlbum = btn.dataset.album;
+  document.getElementById(currentAlbum).classList.add("active");
+});
+
+// =============================================
+// 編集モード
+// =============================================
+document.getElementById("editToggleBtn").addEventListener("click", () => {
+  if (editMode) {
+    exitEditMode();
+  } else {
+    openPasswordModal();
+  }
+});
+
+function enterEditMode() {
+  editMode = true;
+  document.body.classList.add("edit-mode");
+  document.getElementById("editToggleBtn").classList.add("active");
+  document.getElementById("editToggleBtn").textContent = "✕ 編集終了";
+  document.getElementById("editBanner").classList.add("visible");
+}
+
+function exitEditMode() {
+  editMode = false;
+  document.body.classList.remove("edit-mode");
+  document.getElementById("editToggleBtn").classList.remove("active");
+  document.getElementById("editToggleBtn").textContent = "✏️ 編集";
+  document.getElementById("editBanner").classList.remove("visible");
+}
+
+// =============================================
+// パスワードモーダル
+// =============================================
+function openPasswordModal() {
+  document.getElementById("passwordInput").value = "";
+  document.getElementById("passwordError").classList.remove("visible");
+  openModal("passwordModal");
+  setTimeout(() => document.getElementById("passwordInput").focus(), 100);
+}
+
+document.getElementById("passwordOk").addEventListener("click", checkPassword);
+document.getElementById("passwordInput").addEventListener("keydown", e => { if (e.key === "Enter") checkPassword(); });
+document.getElementById("passwordCancel").addEventListener("click", () => closeModal("passwordModal"));
+
+function checkPassword() {
+  if (document.getElementById("passwordInput").value === EDIT_PASSWORD) {
+    closeModal("passwordModal");
+    enterEditMode();
+  } else {
+    document.getElementById("passwordError").classList.add("visible");
+    document.getElementById("passwordInput").select();
+  }
+}
+
+// =============================================
+// 写真追加モーダル
+// =============================================
+function openAddModal() {
+  pendingAddSrc = null;
+  document.getElementById("addCaption").value = "";
+  document.getElementById("addError").classList.remove("visible");
+  document.getElementById("dzPreview").style.display = "none";
+  document.getElementById("dzPreview").src = "";
+  document.getElementById("dropZone").querySelector("span.drop-icon").style.display = "";
+  document.getElementById("dropZone").childNodes[2].textContent = " クリックまたはドラッグ&ドロップで写真を選択";
+  openModal("addModal");
+}
+
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+
+dropZone.addEventListener("click", () => fileInput.click());
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) loadFile(file);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    pendingAddSrc = e.target.result;
+    const preview = document.getElementById("dzPreview");
+    preview.src = pendingAddSrc;
+    preview.style.display = "block";
+    dropZone.querySelector(".drop-icon").style.display = "none";
+    if (!document.getElementById("addCaption").value) {
+      document.getElementById("addCaption").value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById("addOk").addEventListener("click", () => {
+  if (!pendingAddSrc) { document.getElementById("addError").classList.add("visible"); return; }
+  const caption = document.getElementById("addCaption").value.trim() || "無題";
+  const album   = document.getElementById("addAlbum").value;
+  photos.push({ src: pendingAddSrc, caption, album });
+  buildAllGrids();
+  closeModal("addModal");
+  fileInput.value = "";
+});
+
+document.getElementById("addCancel").addEventListener("click", () => { closeModal("addModal"); fileInput.value=""; });
+
+// =============================================
+// キャプション編集モーダル
+// =============================================
+function openEditModal(idx) {
+  pendingEditIndex = idx;
+  document.getElementById("editCaption").value = photos[idx].caption;
+  document.getElementById("editAlbum").value   = photos[idx].album;
+  openModal("editModal");
+  setTimeout(() => document.getElementById("editCaption").focus(), 100);
+}
+
+document.getElementById("editOk").addEventListener("click", () => {
+  if (pendingEditIndex < 0) return;
+  photos[pendingEditIndex].caption = document.getElementById("editCaption").value.trim() || "無題";
+  photos[pendingEditIndex].album   = document.getElementById("editAlbum").value;
+  buildAllGrids();
+  closeModal("editModal");
+  pendingEditIndex = -1;
+});
+
+document.getElementById("editCancel").addEventListener("click", () => { closeModal("editModal"); pendingEditIndex=-1; });
+
+// =============================================
+// 削除確認モーダル
+// =============================================
+function openDeleteModal(idx) {
+  pendingDeleteIndex = idx;
+  openModal("deleteModal");
+}
+
+document.getElementById("deleteOk").addEventListener("click", () => {
+  if (pendingDeleteIndex < 0) return;
+  photos.splice(pendingDeleteIndex, 1);
+  buildAllGrids();
+  closeModal("deleteModal");
+  pendingDeleteIndex = -1;
+});
+
+document.getElementById("deleteCancel").addEventListener("click", () => { closeModal("deleteModal"); pendingDeleteIndex=-1; });
+
+// =============================================
+// モーダルユーティリティ
+// =============================================
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".modal-overlay").forEach(overlay => {
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("open"); });
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.querySelectorAll(".modal-overlay.open").forEach(m => m.classList.remove("open"));
+});
+
+// =============================================
+// 更新版HTML ダウンロード
+// =============================================
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const photosJson = JSON.stringify(photos, null, 2);
+  const html = document.documentElement.outerHTML;
+  // photos配列を現在の状態に置き換え
+  const updated = html.replace(
+    /let photos = \[[\s\S]*?\];/,
+    `let photos = ${photosJson};`
+  );
+  const blob = new Blob([updated], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "gallery.html";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// =============================================
+// ライトボックス
+// =============================================
+function openLightbox(items, index) {
+  lbItems = items; lbIndex = index;
+  showLbPhoto();
+  document.getElementById("lightbox").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function showLbPhoto() {
+  const p = lbItems[lbIndex];
+  document.getElementById("lbImg").src = p.src;
+  document.getElementById("lbImg").alt = p.caption;
+  document.getElementById("lbCaption").textContent = p.caption + "　(" + (lbIndex+1) + " / " + lbItems.length + ")";
+}
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("lbClose").addEventListener("click", closeLightbox);
+document.getElementById("lightbox").addEventListener("click", e => { if (e.target===document.getElementById("lightbox")) closeLightbox(); });
+document.getElementById("lbPrev").addEventListener("click", e => { e.stopPropagation(); lbIndex=(lbIndex-1+lbItems.length)%lbItems.length; showLbPhoto(); });
+document.getElementById("lbNext").addEventListener("click", e => { e.stopPropagation(); lbIndex=(lbIndex+1)%lbItems.length; showLbPhoto(); });
+document.addEventListener("keydown", e => {
+  if (!document.getElementById("lightbox").classList.contains("open")) return;
+  if (e.key==="Escape") closeLightbox();
+  if (e.key==="ArrowLeft")  { lbIndex=(lbIndex-1+lbItems.length)%lbItems.length; showLbPhoto(); }
+  if (e.key==="ArrowRight") { lbIndex=(lbIndex+1)%lbItems.length; showLbPhoto(); }
+});
+
+// =============================================
+// 初期描画
+// =============================================
+buildAllGrids();
+</script>
+</body>
+</html>
